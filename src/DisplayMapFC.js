@@ -2,6 +2,11 @@ import * as React from 'react';
 
 export const DisplayMapFC = () => {
   const mapRef = React.useRef(null);
+  const formRef = React.useRef(null);
+  const [isDraw, setIsDraw] = React.useState(false);
+  const [departure, setDeparture] = React.useState('');
+  const [arrival, setArrival] = React.useState('');
+  const [transport, setTransport] = React.useState('');
 
   React.useLayoutEffect(() => {
     if (!mapRef.current) return;
@@ -11,7 +16,7 @@ export const DisplayMapFC = () => {
     });
     const defaultLayers = platform.createDefaultLayers();
     const hMap = new H.Map(mapRef.current, defaultLayers.vector.normal.map, {
-      center: { lat: 20.9565, lng: 105.8162 },
+      center: { lat: 21.0278, lng: 105.8342 },
       zoom: 10,
       pixelRatio: window.devicePixelRatio || 1
     });
@@ -21,19 +26,62 @@ export const DisplayMapFC = () => {
     // eslint-disable-next-line
     const ui = H.ui.UI.createDefault(hMap, defaultLayers);
 
-    const routingParameters = {
-      'routingMode': 'fast',
-      'transportMode': 'car',
-      'origin': '20.9553,105.812',
-      'destination': '20.9496,105.822',
-      'return': 'polyline'
-    };
+    // navigator.geolocation.getCurrentPosition(function(pos) {
+    //   const crd = pos.coords;
 
-    const onResult = function(result) {
-      // ensure that at least one route was found
-      if (result.routes.length) {
+    //   let currentPositionMarker = new H.map.Marker({lat: crd.latitude, lng: crd.longitude});
+    //   hMap.addObject(currentPositionMarker);
+    // }, function(err) {
+    //   console.warn(`ERROR(${err.code}): ${err.message}`);
+    // }, {
+    //   enableHighAccuracy: true,
+    //   timeout: 5000,
+    //   maximumAge: 0
+    // });
+
+    if (isDraw && departure && arrival) {
+      let isArrival = false;
+
+      const logContainer = document.createElement('div');
+      logContainer.className ='log';
+      logContainer.innerHTML = '';
+      mapRef.current.appendChild(logContainer);
+
+      const onGeoResult = function(result) {
+        if (!result.Response.View.length) return;
+
+        const locations = result.Response.View[0].Result;
+        let position;
+
+        for (let i = 0;  i < locations.length; i++) {
+          position = {
+            lat: locations[i].Location.DisplayPosition.Latitude,
+            lng: locations[i].Location.DisplayPosition.Longitude
+          };
+
+          if (!isArrival) {
+            routingParameters.origin = position.lat.toFixed(4) + ',' + position.lng.toFixed(4);
+            isArrival = true;
+          } else {
+            routingParameters.destination = position.lat.toFixed(4) + ',' + position.lng.toFixed(4);
+            routingParameters.transportMode = transport;
+
+            const router = platform.getRoutingService(null, 8);
+
+            router.calculateRoute(routingParameters, onResult,
+              function(error) {
+                alert(error.message);
+              });
+          }
+        }
+      };
+
+      const onResult = function(result) {
+        // ensure that at least one route was found
+        if (!result.routes.length) return;
+
         result.routes[0].sections.forEach((section) => {
-            // Create a linestring to use as a point source for the route line
+          // Create a linestring to use as a point source for the route line
           let linestring = H.geo.LineString.fromFlexiblePolyline(section.polyline);
 
           // Create a polyline to display the route:
@@ -47,26 +95,86 @@ export const DisplayMapFC = () => {
           // Create a marker for the end point:
           let endMarker = new H.map.Marker(section.arrival.place.location);
 
+          logContainer.innerHTML = `<p>The length: ${section.travelSummary.length}m, the duration: ${section.travelSummary.duration}s</p>`;
+
           // Add the route polyline and the two markers to the map:
           hMap.addObjects([routeLine, startMarker, endMarker]);
-
           // Set the map's viewport to make the whole route visible:
           hMap.getViewModel().setLookAtData({bounds: routeLine.getBoundingBox()});
         });
-      }
-    };
+      };
 
-    const router = platform.getRoutingService(null, 8);
+      const geocodingParams = {
+        searchText: departure
+      };
 
-    router.calculateRoute(routingParameters, onResult,
-      function(error) {
-        alert(error.message);
+      const geocodingEndParams = {
+        searchText: arrival
+      };
+
+      const routingParameters = {
+        routingMode: 'fast',
+        transportMode: '',
+        origin: '',
+        destination: '',
+        return: 'polyline,travelSummary'
+      };
+
+      const geocoder = platform.getGeocodingService();
+      geocoder.geocode(geocodingParams, onGeoResult, function(e) {
+        alert(e);
       });
+      geocoder.geocode(geocodingEndParams, onGeoResult, function(e) {
+        alert(e);
+      });
+    }
 
     return () => {
       hMap.dispose();
     };
-  }, [mapRef]);
+  }, [mapRef, isDraw, departure, transport, arrival]);
 
-  return <div className="map" ref={mapRef} style={{ height: "480px", width: "640px" }} />;
+  const handleSubmit = function(event) {
+    if (formRef.current[0].value.trim() && formRef.current[1].value.trim()) {
+      setDeparture(formRef.current[0].value.trim());
+      setArrival(formRef.current[1].value.trim());
+      setTransport(formRef.current[2].value);
+      setIsDraw(true);
+    }
+
+    event.preventDefault();
+  }
+
+  const clearDraw = function() {
+    setIsDraw(false);
+    formRef.current[0].value = '';
+    formRef.current[1].value = '';
+    setDeparture('');
+    setArrival('');
+    setTransport('');
+  }
+
+  return <div>
+    <div className="map" ref={mapRef} style={{ height: "480px", width: "640px" }} />
+    <form onSubmit={handleSubmit} ref={formRef}>
+      <label>
+        Departure:
+        <input type="text" name="departure"/>
+      </label>
+      <label>
+        Arrival:
+        <input type="text" name="arrival"/>
+      </label>
+      <label>
+        Pick your transport:
+        <select>
+          <option value="car">Car</option>
+          <option value="bicycle">Bicycle</option>
+          <option value="pedestrian">pedestrian</option>
+        </select>
+        </label>
+      <input type="submit" value="Submit" />
+    </form>
+    <button onClick={clearDraw}>Clear Route</button>
+  </div>
 };
