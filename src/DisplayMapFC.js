@@ -7,6 +7,7 @@ export const DisplayMapFC = () => {
   const [departure, setDeparture] = React.useState('');
   const [arrival, setArrival] = React.useState('');
   const [transport, setTransport] = React.useState('');
+  const [durationDetail, setDurationDetail] = React.useState('Duration Details:');
 
   React.useLayoutEffect(() => {
     if (!mapRef.current) return;
@@ -20,32 +21,31 @@ export const DisplayMapFC = () => {
       zoom: 10,
       pixelRatio: window.devicePixelRatio || 1
     });
+    const isNumeric = function(str) {
+      if (typeof str != "string") return false
+      return !isNaN(str) && !isNaN(parseFloat(str))
+    }
 
     // eslint-disable-next-line
     const behavior = new H.mapevents.Behavior(new H.mapevents.MapEvents(hMap));
     // eslint-disable-next-line
     const ui = H.ui.UI.createDefault(hMap, defaultLayers);
 
-    // navigator.geolocation.getCurrentPosition(function(pos) {
-    //   const crd = pos.coords;
+    navigator.geolocation.getCurrentPosition(function(pos) {
+      const crd = pos.coords;
 
-    //   let currentPositionMarker = new H.map.Marker({lat: crd.latitude, lng: crd.longitude});
-    //   hMap.addObject(currentPositionMarker);
-    // }, function(err) {
-    //   console.warn(`ERROR(${err.code}): ${err.message}`);
-    // }, {
-    //   enableHighAccuracy: true,
-    //   timeout: 5000,
-    //   maximumAge: 0
-    // });
+      let currentPositionMarker = new H.map.Marker({lat: crd.latitude, lng: crd.longitude});
+      hMap.addObject(currentPositionMarker);
+    }, function(err) {
+      console.warn(`ERROR(${err.code}): ${err.message}`);
+    }, {
+      enableHighAccuracy: true,
+      timeout: 5000,
+      maximumAge: 0
+    });
 
     if (isDraw && departure && arrival) {
       let isArrival = false;
-
-      const logContainer = document.createElement('div');
-      logContainer.className ='log';
-      logContainer.innerHTML = '';
-      mapRef.current.appendChild(logContainer);
 
       const onGeoResult = function(result) {
         if (!result.Response.View.length) return;
@@ -64,7 +64,7 @@ export const DisplayMapFC = () => {
             isArrival = true;
           } else {
             routingParameters.destination = position.lat.toFixed(4) + ',' + position.lng.toFixed(4);
-            routingParameters.transportMode = transport;
+            routingParameters.transportMode = isNumeric(transport) ? 'car' : transport;
 
             const router = platform.getRoutingService(null, 8);
 
@@ -95,7 +95,7 @@ export const DisplayMapFC = () => {
           // Create a marker for the end point:
           let endMarker = new H.map.Marker(section.arrival.place.location);
 
-          logContainer.innerHTML = `<p>The length: ${section.travelSummary.length}m, the duration: ${section.travelSummary.duration}s</p>`;
+          setDurationDetail(`Duration Details: with ${isNumeric(transport) ? 'car speed ' + transport + 'km' : transport} ${(section.travelSummary.length / 1000).toFixed(2)}km, the duration: ${isNumeric(transport) ? (section.travelSummary.length / (1000 * transport)).toFixed(2) : (section.travelSummary.duration / 3600).toFixed(2)}h`);
 
           // Add the route polyline and the two markers to the map:
           hMap.addObjects([routeLine, startMarker, endMarker]);
@@ -152,11 +152,12 @@ export const DisplayMapFC = () => {
     setDeparture('');
     setArrival('');
     setTransport('');
+    setDurationDetail('Duration Details:');
   }
 
   return <div>
-    <div className="map" ref={mapRef} style={{ height: "480px", width: "640px" }} />
-    <form onSubmit={handleSubmit} ref={formRef}>
+    <div className="map" ref={mapRef} style={{ height: "480px", width: "100%" }} />
+    <form className="formRoute" onSubmit={handleSubmit} ref={formRef}>
       <label>
         Departure:
         <input type="text" name="departure"/>
@@ -171,10 +172,14 @@ export const DisplayMapFC = () => {
           <option value="car">Car</option>
           <option value="bicycle">Bicycle</option>
           <option value="pedestrian">pedestrian</option>
+          <option value="40">40KM/h</option>
+          <option value="60">60KM/h</option>
+          <option value="80">80KM/h</option>
         </select>
         </label>
       <input type="submit" value="Submit" />
     </form>
     <button onClick={clearDraw}>Clear Route</button>
+    <p>{durationDetail}</p>
   </div>
 };
