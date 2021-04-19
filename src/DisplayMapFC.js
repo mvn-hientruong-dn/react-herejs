@@ -17,8 +17,8 @@ export const DisplayMapFC = () => {
     });
     const defaultLayers = platform.createDefaultLayers();
     const hMap = new H.Map(mapRef.current, defaultLayers.vector.normal.map, {
-      center: { lat: 21.0278, lng: 105.8342 },
-      zoom: 10,
+      center: { lat: 16.0471, lng: 108.2062 },
+      zoom: 14,
       pixelRatio: window.devicePixelRatio || 1
     });
     const isNumeric = function(str) {
@@ -33,8 +33,7 @@ export const DisplayMapFC = () => {
 
     navigator.geolocation.getCurrentPosition(function(pos) {
       const crd = pos.coords;
-
-      let currentPositionMarker = new H.map.Marker({lat: crd.latitude, lng: crd.longitude});
+      const currentPositionMarker = new H.map.Marker({lat: crd.latitude, lng: crd.longitude});
       hMap.addObject(currentPositionMarker);
     }, function(err) {
       console.warn(`ERROR(${err.code}): ${err.message}`);

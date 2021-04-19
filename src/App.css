@@ -19,6 +19,10 @@
   margin-right: 24px;
 }
 
+.formRoute label input, select {
+  margin-left: 8px;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .App-logo {
     animation: App-logo-spin infinite 20s linear;
